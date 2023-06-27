@@ -96,8 +96,7 @@ class Program
 
                 // Start scanning the file in chunks
                 Stopwatch stopwatch = Stopwatch.StartNew();
-                //while (totalBytesScanned < sizeOfDrive)
-                while (totalBytesScanned < (sizeOfDrive / (1024)))
+                while (totalBytesScanned < sizeOfDrive)
                 {
                     totalBytesScanned += bytesRead;
 
