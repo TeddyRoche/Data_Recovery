@@ -15,7 +15,7 @@ class Program
 
         // Define the drive path to scan
         string drivePath = @"\\.\D:"; // Open drive as raw bytes (G = windows "|")
-
+        
         //change the letter to the type you are scanning
         DriveInfo dDrive = new DriveInfo("D");
         long sizeOfDrive = 0;
@@ -53,6 +53,10 @@ class Program
                 chunkSize = 4096;
             }
 
+            // Read the first chunk of data from the file
+            byte[] dataChunk = new byte[chunkSize];
+            int bytesRead = fileHandle.Read(dataChunk, 0, chunkSize);
+
             // Initialize variables for recovery process
             int offset = 0; // Offset location
             bool recoveryMode = false; // Recovery mode flag
@@ -73,88 +77,81 @@ class Program
                 { "docx", Tuple.Create(new byte[] { (byte)'P', (byte)'K', 0x03, 0x04 }, new byte[] { (byte)'P', (byte)'K', 0x05, 0x06 }) }
             };
 
-            // Start scanning the file in chunks for each file type
-            foreach (var fileType in fileTypes)
+            // Get the file type from user input
+            Console.WriteLine("Enter the file type you want to search for (jpg, png, pdf, docx): ");
+            string fileType = Console.ReadLine().ToLower();
+
+            // Check if the file type is supported
+            if (!fileTypes.ContainsKey(fileType))
             {
-                string fileTypeName = fileType.Key;
-                Tuple<byte[], byte[]> fileSignature = fileType.Value;
-                byte[] signatureStart = fileSignature.Item1;
-                byte[] signatureEnd = fileSignature.Item2;
-                string fileExtension = "." + fileTypeName;
+                Console.WriteLine("Invalid file type. Supported file types: jpg, jpeg, png, pdf, docx");
+                return;
+            }
 
-                // Reset variables for each file type scan
-                offset = 0;
-                recoveryMode = false;
-                recoveredFileId = 0;
-                totalBytesScanned = 0;
+            // Retrieve the file signatures and extension based on the chosen file type
+            Tuple<byte[], byte[]> fileSignature = fileTypes[fileType];
+            byte[] signatureStart = fileSignature.Item1;
+            byte[] signatureEnd = fileSignature.Item2;
+            string fileExtension = "." + fileType;
 
-                Console.WriteLine("\n--- Scanning for {0} files ---\n", fileTypeName.ToUpper());
+            // Start scanning the file in chunks
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            while (totalBytesScanned < sizeOfDrive)
+            {
+                totalBytesScanned += bytesRead;
 
-                // Read the first chunk of data from the file
-                byte[] dataChunk = new byte[chunkSize];
-                int bytesRead = fileHandle.Read(dataChunk, 0, chunkSize);
-
-                // Start scanning the file in chunks
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                while (totalBytesScanned < sizeOfDrive)
+                // Display message every 150 megabytes
+                if (totalBytesScanned % (250 * 1024 * 1024) == 0)
                 {
-                    totalBytesScanned += bytesRead;
+                    TimeSpan elapsedTime = stopwatch.Elapsed;
+                    Console.WriteLine("Elapsed Time: {0:hh\\:mm\\:ss}", elapsedTime);
+                    Console.WriteLine("Scanned: {0:F3} GB", (double)totalBytesScanned / (1024 * 1024 * 1024));
+                }
 
-                    // Display message every 150 megabytes
-                    if (totalBytesScanned % (250 * 1024 * 1024) == 0)
+                // Search for file signatures based on file types
+                if (FindSignatureIndex(dataChunk, signatureStart) >= 0)
+                {
+                    int signatureIndex = FindSignatureIndex(dataChunk, signatureStart);
+                    recoveryMode = true;
+                    Console.WriteLine("==== Found " + fileType.ToUpper() + " at location: " + (signatureIndex + (chunkSize * offset)).ToString("X") + " ====");
+
+                    // Create a recovered file and search for the end marker
+                    string recoveredFilePath = Path.Combine(recoveryDirectory, $"{recoveredFileId}{fileExtension}");
+                    using (FileStream recoveredFileHandle = new FileStream(recoveredFilePath, FileMode.Create, FileAccess.Write))
                     {
-                        TimeSpan elapsedTime = stopwatch.Elapsed;
-                        Console.WriteLine("Elapsed Time: {0:hh\\:mm\\:ss}", elapsedTime);
-                        Console.WriteLine("Scanned: {0:F3} GB", (double)totalBytesScanned / (1024 * 1024 * 1024));
-                    }
+                        recoveredFileHandle.Write(dataChunk, signatureIndex, bytesRead - signatureIndex);
 
-                    // Search for file signatures based on file types
-                    if (FindSignatureIndex(dataChunk, signatureStart) >= 0)
-                    {
-                        int signatureIndex = FindSignatureIndex(dataChunk, signatureStart);
-                        recoveryMode = true;
-                        Console.WriteLine("==== Found " + fileTypeName.ToUpper() + " at location: " + (signatureIndex + (chunkSize * offset)).ToString("X") + " ====");
-
-                        // Create a recovered file and search for the end marker
-                        string recoveredFilePath = Path.Combine(recoveryDirectory, $"{recoveredFileId}{fileExtension}");
-                        using (FileStream recoveredFileHandle = new FileStream(recoveredFilePath, FileMode.Create, FileAccess.Write))
+                        while (recoveryMode)
                         {
-                            recoveredFileHandle.Write(dataChunk, signatureIndex, bytesRead - signatureIndex);
+                            bytesRead = fileHandle.Read(dataChunk, 0, chunkSize);
 
-                            while (recoveryMode)
+                            int signatureEndIndex = FindSignatureIndex(dataChunk, signatureEnd);
+                            if (signatureEndIndex >= 0)
                             {
-                                bytesRead = fileHandle.Read(dataChunk, 0, chunkSize);
-
-                                int signatureEndIndex = FindSignatureIndex(dataChunk, signatureEnd);
-                                if (signatureEndIndex >= 0)
-                                {
-                                    recoveredFileHandle.Write(dataChunk, 0, signatureEndIndex + signatureEnd.Length);
-                                    fileHandle.Seek((offset + 1) * chunkSize, SeekOrigin.Begin);
-                                    Console.WriteLine("==== Wrote " + fileTypeName.ToUpper() + " to location: " + recoveredFilePath + " ====\n");
-                                    recoveryMode = false;
-                                    recoveredFileId++;
-                                    break;
-                                }
-                                else
-                                {
-                                    recoveredFileHandle.Write(dataChunk, 0, bytesRead);
-                                }
+                                recoveredFileHandle.Write(dataChunk, 0, signatureEndIndex + signatureEnd.Length);
+                                fileHandle.Seek((offset + 1) * chunkSize, SeekOrigin.Begin);
+                                Console.WriteLine("==== Wrote " + fileType.ToUpper() + " to location: " + recoveredFilePath + " ====\n");
+                                recoveryMode = false;
+                                recoveredFileId++;
+                                break;
+                            }
+                            else
+                            {
+                                recoveredFileHandle.Write(dataChunk, 0, bytesRead);
                             }
                         }
                     }
-
-                    bytesRead = fileHandle.Read(dataChunk, 0, chunkSize);
-                    offset++;
                 }
 
-                stopwatch.Stop();
-                TimeSpan totalElapsedTime = stopwatch.Elapsed;
-                Console.WriteLine("Total Elapsed Time: {0:hh\\:mm\\:ss}", totalElapsedTime);
-                Console.WriteLine("Scanned: {0:F3} MB", (double)totalBytesScanned / (1024 * 1024 * 1024));
-                Console.WriteLine("\n--- End of {0} scan ---\n", fileTypeName.ToUpper());
+                bytesRead = fileHandle.Read(dataChunk, 0, chunkSize);
+                offset++;
             }
-        }
 
+            stopwatch.Stop();
+            TimeSpan totalElapsedTime = stopwatch.Elapsed;
+            Console.WriteLine("Total Elapsed Time: {0:hh\\:mm\\:ss}", totalElapsedTime);
+            Console.WriteLine("Scanned: {0:F3} MB", (double)totalBytesScanned / (1024 * 1024 * 1024));
+        }
         Console.WriteLine("Press any key to end the program...");
         Console.ReadKey();
     }
