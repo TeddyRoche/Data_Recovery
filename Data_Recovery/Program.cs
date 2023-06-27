@@ -150,8 +150,10 @@ class Program
             stopwatch.Stop();
             TimeSpan totalElapsedTime = stopwatch.Elapsed;
             Console.WriteLine("Total Elapsed Time: {0:hh\\:mm\\:ss}", totalElapsedTime);
-            Console.WriteLine("Scanned: {0} MB", totalBytesScanned / (1024 * 1024));
+            Console.WriteLine("Scanned: {0:F3} MB", (double)totalBytesScanned / (1024 * 1024 * 1024));
         }
+        Console.WriteLine("Press any key to end the program...");
+        Console.ReadKey();
     }
 
     static int FindSignatureIndex(byte[] data, byte[] signature)
