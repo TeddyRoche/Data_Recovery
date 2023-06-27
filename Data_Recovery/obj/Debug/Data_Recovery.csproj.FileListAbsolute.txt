@@ -1,0 +1,8 @@
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\bin\Debug\Data_Recovery.exe.config
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\bin\Debug\Data_Recovery.exe
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\bin\Debug\Data_Recovery.pdb
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\obj\Debug\Data_Recovery.csproj.AssemblyReference.cache
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\obj\Debug\Data_Recovery.csproj.SuggestedBindingRedirects.cache
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\obj\Debug\Data_Recovery.csproj.CoreCompileInputs.cache
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\obj\Debug\Data_Recovery.exe
+C:\Users\Theodore Roche\Desktop\C#_Recovery\Data_Recovery\Data_Recovery\obj\Debug\Data_Recovery.pdb
